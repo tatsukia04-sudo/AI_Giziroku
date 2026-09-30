@@ -47,8 +47,12 @@ SUMMARY_PROMPT = """あなたは大学の授業ノートを作る優秀なアシ
 """
 
 
+def get_key() -> str:
+    return (os.getenv("GEMINI_API_KEY") or st.session_state.get("api_key") or "").strip()
+
+
 def get_client() -> genai.Client | None:
-    key = os.getenv("GEMINI_API_KEY") or st.session_state.get("api_key")
+    key = get_key()
     return genai.Client(api_key=key) if key else None
 
 
@@ -59,13 +63,13 @@ def transcribe(client: genai.Client, audio: bytes, mime: str) -> str:
         part = client.files.upload(
             file=io.BytesIO(audio), config=types.UploadFileConfig(mime_type=mime)
         )
-    res = client.models.generate_content(model=MODEL, contents=[TRANSCRIBE_PROMPT, part])
+    res = client.models.generate_content(model=st.session_state.get("model", MODEL), contents=[TRANSCRIBE_PROMPT, part])
     return (res.text or "").strip()
 
 
 def summarize(client: genai.Client, transcript: str, meta: str) -> str:
     prompt = SUMMARY_PROMPT.format(meta=meta or "(未入力)", transcript=transcript)
-    res = client.models.generate_content(model=MODEL, contents=prompt)
+    res = client.models.generate_content(model=st.session_state.get("model", MODEL), contents=prompt)
     return (res.text or "").strip()
 
 
@@ -84,7 +88,7 @@ def main() -> None:
             ss["api_key"] = st.text_input("Gemini APIキー", type="password")
         else:
             st.success("APIキーを環境変数から読み込みました")
-        st.caption(f"モデル: {MODEL}")
+        ss["model"] = st.text_input("モデル名", value=MODEL, help="例: gemini-2.5-flash。AI Studioに表示されるモデルIDを入力")
         course = st.text_input("授業名", placeholder="例: 経済学入門")
         topic = st.text_input("今回のテーマ", placeholder="例: 需要と供給")
         st.divider()
@@ -120,6 +124,10 @@ def main() -> None:
             st.audio(data, format=mime)
             st.caption(f"#{i} ({len(data) / 1024 / 1024:.1f} MB)")
 
+    key = get_key()
+    if key and not key.isascii():
+        st.error("APIキーに日本語などが含まれています。.env の GEMINI_API_KEY を、Google AI Studioで発行した英数字のキーに書き換えてください。")
+        return
     client = get_client()
     if not client:
         st.info("サイドバーにGemini APIキーを入力してください。")
