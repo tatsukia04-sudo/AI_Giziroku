@@ -48,7 +48,7 @@ SUMMARY_PROMPT = """あなたは大学の授業ノートを作る優秀なアシ
 
 
 def get_key() -> str:
-    return (os.getenv("GEMINI_API_KEY") or st.session_state.get("api_key") or "").strip()
+    return (st.session_state.get("api_key") or os.getenv("GEMINI_API_KEY") or "").strip()
 
 
 def get_client() -> genai.Client | None:
@@ -84,10 +84,9 @@ def main() -> None:
 
     with st.sidebar:
         st.header("設定")
-        if not os.getenv("GEMINI_API_KEY"):
-            ss["api_key"] = st.text_input("Gemini APIキー", type="password")
-        else:
-            st.success("APIキーを環境変数から読み込みました")
+        ss["api_key"] = st.text_input(
+            "Gemini APIキー", type="password", help="ここに貼り付けるだけで使えます(.envの設定は不要)"
+        )
         ss["model"] = st.text_input("モデル名", value=MODEL, help="例: gemini-2.5-flash。AI Studioに表示されるモデルIDを入力")
         course = st.text_input("授業名", placeholder="例: 経済学入門")
         topic = st.text_input("今回のテーマ", placeholder="例: 需要と供給")
