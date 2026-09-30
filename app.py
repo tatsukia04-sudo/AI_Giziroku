@@ -14,7 +14,7 @@ from google.genai import types
 
 load_dotenv()
 
-MODEL = os.getenv("GEMINI_MODEL", "gemini-3.8-flash")
+MODEL = os.getenv("GEMINI_MODEL", "gemini-3.5-flash")
 INLINE_LIMIT = 15 * 1024 * 1024  # これを超える音声は Files API 経由で送る
 
 TRANSCRIBE_PROMPT = (
@@ -87,7 +87,7 @@ def main() -> None:
         ss["api_key"] = st.text_input(
             "Gemini APIキー", type="password", help="ここに貼り付けるだけで使えます(.envの設定は不要)"
         )
-        ss["model"] = st.text_input("モデル名", value=MODEL, help="例: gemini-3.8-flash。AI Studioに表示されるモデルIDを入力")
+        ss["model"] = st.text_input("モデル名", value=MODEL, help="例: gemini-3.5-flash。AI Studioに表示されるモデルIDを入力")
         course = st.text_input("授業名", placeholder="例: 経済学入門")
         topic = st.text_input("今回のテーマ", placeholder="例: 需要と供給")
         st.divider()
