@@ -5,11 +5,13 @@
 """
 import io
 import os
+import time
 from datetime import datetime
 
 import streamlit as st
 from dotenv import load_dotenv
 from google import genai
+from google.genai import errors as genai_errors
 from google.genai import types
 
 load_dotenv()
@@ -56,6 +58,21 @@ def get_client() -> genai.Client | None:
     return genai.Client(api_key=key) if key else None
 
 
+def generate(client: genai.Client, contents, retries: int = 5) -> str:
+    """混雑(503)・レート制限(429)などの一時的なエラーは待ってから自動で再試行する。"""
+    model = st.session_state.get("model", MODEL)
+    for attempt in range(retries):
+        try:
+            res = client.models.generate_content(model=model, contents=contents)
+            return (res.text or "").strip()
+        except genai_errors.APIError as e:
+            if e.code not in (429, 500, 503, 504) or attempt == retries - 1:
+                raise
+            wait = 5 * 2**attempt  # 5, 10, 20, 40秒
+            st.toast(f"混雑中のため{wait}秒後に再試行します({attempt + 1}/{retries - 1})")
+            time.sleep(wait)
+
+
 def transcribe(client: genai.Client, audio: bytes, mime: str) -> str:
     if len(audio) <= INLINE_LIMIT:
         part = types.Part.from_bytes(data=audio, mime_type=mime)
@@ -63,14 +80,12 @@ def transcribe(client: genai.Client, audio: bytes, mime: str) -> str:
         part = client.files.upload(
             file=io.BytesIO(audio), config=types.UploadFileConfig(mime_type=mime)
         )
-    res = client.models.generate_content(model=st.session_state.get("model", MODEL), contents=[TRANSCRIBE_PROMPT, part])
-    return (res.text or "").strip()
+    return generate(client, [TRANSCRIBE_PROMPT, part])
 
 
 def summarize(client: genai.Client, transcript: str, meta: str) -> str:
     prompt = SUMMARY_PROMPT.format(meta=meta or "(未入力)", transcript=transcript)
-    res = client.models.generate_content(model=st.session_state.get("model", MODEL), contents=prompt)
-    return (res.text or "").strip()
+    return generate(client, prompt)
 
 
 def main() -> None:
